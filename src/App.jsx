@@ -18,6 +18,7 @@ function App() {
   const [status, setStatus] = useState('APPLIED')
   const [appliedDate, setAppliedDate] = useState('')
   const [notes, setNotes] = useState('')
+  const [editingId, setEditingId] = useState(null)
 
   const handleLogin = async (e) => {
     e.preventDefault()
@@ -69,7 +70,38 @@ function App() {
     setShowDropdown(false)
   }
 
-  const handleAddApplication = async (e) => {
+  const resetForm = () => {
+    setRole('')
+    setCompanyId('')
+    setCompanySearch('')
+    setStatus('APPLIED')
+    setAppliedDate('')
+    setNotes('')
+    setEditingId(null)
+  }
+
+  const startEdit = (app) => {
+    setEditingId(app.id)
+    setRole(app.role)
+    setCompanySearch(app.companyName)
+    setCompanyId('') // will be resolved by exact-name match on submit
+    setStatus(app.status)
+    setAppliedDate(app.appliedDate)
+    setNotes(app.notes || '')
+  }
+
+  const handleDelete = async (id) => {
+    const confirmed = window.confirm('Delete this application? This cannot be undone.')
+    if (!confirmed) return
+
+    await fetch(`${API_BASE}/api/applications/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    fetchApplications()
+  }
+
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     try {
@@ -79,7 +111,6 @@ function App() {
       }
 
       let finalCompanyId = companyId
-
       const exactMatch = companies.find(
         (c) => c.name.toLowerCase() === companySearch.toLowerCase()
       )
@@ -97,28 +128,31 @@ function App() {
         finalCompanyId = exactMatch.id
       }
 
-      const response = await fetch(`${API_BASE}/api/applications`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ role, companyId: Number(finalCompanyId), status, appliedDate, notes }),
+      const payload = { role, companyId: Number(finalCompanyId), status, appliedDate, notes }
+
+      const url = editingId
+        ? `${API_BASE}/api/applications/${editingId}`
+        : `${API_BASE}/api/applications`
+      const method = editingId ? 'PUT' : 'POST'
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
       })
-      if (!response.ok) throw new Error('Failed to add application')
+      if (!response.ok) throw new Error(`Failed to ${editingId ? 'update' : 'add'} application`)
 
-      setRole('')
-      setCompanyId('')
-      setCompanySearch('')
-      setStatus('APPLIED')
-      setAppliedDate('')
-      setNotes('')
-
+      resetForm()
       fetchApplications()
     } catch (err) {
       setError(err.message)
     }
   }
+
+  const statusCounts = applications.reduce((counts, app) => {
+    counts[app.status] = (counts[app.status] || 0) + 1
+    return counts
+  }, {})
 
   if (!token) {
     return (
@@ -144,8 +178,17 @@ function App() {
     <div>
       <h1>Job Tracker</h1>
 
-      <h2>Add Application</h2>
-      <form onSubmit={handleAddApplication}>
+      <h2>Dashboard</h2>
+      <div style={{ display: 'flex', gap: '16px' }}>
+        <p>Total: {applications.length}</p>
+        <p>Applied: {statusCounts.APPLIED || 0}</p>
+        <p>Interviewing: {statusCounts.INTERVIEWING || 0}</p>
+        <p>Offered: {statusCounts.OFFERED || 0}</p>
+        <p>Rejected: {statusCounts.REJECTED || 0}</p>
+      </div>
+
+      <h2>{editingId ? 'Edit Application' : 'Add Application'}</h2>
+      <form onSubmit={handleSubmit}>
         <div>
           <label>Role: </label>
           <input value={role} onChange={(e) => setRole(e.target.value)} required />
@@ -216,7 +259,10 @@ function App() {
           <label>Notes: </label>
           <input value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
-        <button type="submit">Add Application</button>
+        <button type="submit">{editingId ? 'Save Changes' : 'Add Application'}</button>
+        {editingId && (
+          <button type="button" onClick={resetForm}>Cancel</button>
+        )}
       </form>
       {error && <p style={{ color: 'red' }}>{error}</p>}
 
@@ -229,6 +275,9 @@ function App() {
             <li key={app.id}>
               <strong>{app.role}</strong> at {app.companyName} — {app.status} ({app.appliedDate})
               {app.notes && <span> — {app.notes}</span>}
+              {' '}
+              <button onClick={() => startEdit(app)}>Edit</button>
+              <button onClick={() => handleDelete(app.id)}>Delete</button>
             </li>
           ))}
         </ul>
