@@ -19,10 +19,12 @@ function App() {
   const [appliedDate, setAppliedDate] = useState('')
   const [notes, setNotes] = useState('')
   const [editingId, setEditingId] = useState(null)
+  const [loading, setLoading] = useState(false)
 
   const handleLogin = async (e) => {
     e.preventDefault()
     setError('')
+    setLoading(true)
     try {
       const response = await fetch(`${API_BASE}/api/auth/login`, {
         method: 'POST',
@@ -34,6 +36,8 @@ function App() {
       setToken(jwt)
     } catch (err) {
       setError(err.message)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -104,6 +108,7 @@ function App() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+    setLoading(true)
     try {
       if (!companySearch) {
         setError('Please enter a company name')
@@ -146,6 +151,8 @@ function App() {
       fetchApplications()
     } catch (err) {
       setError(err.message)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -167,7 +174,9 @@ function App() {
             <label>Password: </label>
             <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
-          <button type="submit">Login</button>
+          <button type="submit" disabled={loading}>
+            {loading ? 'Logging in...' : 'Login'}
+          </button>
         </form>
         {error && <p style={{ color: 'red' }}>{error}</p>}
       </div>
@@ -259,7 +268,9 @@ function App() {
           <label>Notes: </label>
           <input value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
-        <button type="submit">{editingId ? 'Save Changes' : 'Add Application'}</button>
+        <button type="submit" disabled={loading}>
+          {loading ? 'Saving...' : (editingId ? 'Save Changes' : 'Add Application')}
+        </button>
         {editingId && (
           <button type="button" onClick={resetForm}>Cancel</button>
         )}
