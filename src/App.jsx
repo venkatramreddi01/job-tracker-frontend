@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 
-const API_BASE = 'http://localhost:8080'
+const API_BASE = 'https://job-tracker-production-5bd0.up.railway.app'
 
 function App() {
   const [username, setUsername] = useState('')
